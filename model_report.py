@@ -23,6 +23,7 @@ def deployment_decision(accuracy):
 
 def report(model_name, scores):
     """Print a small report for a model given a list of accuracy scores."""
+    print(scores)
     best = max(scores)
     average = sum(scores) / len(scores)
     worst = min(scores)
