@@ -18,6 +18,7 @@ I'm learning in public — follow along, or use it as a roadmap for your own sta
 | 02 | **Python + Git Workflow** | The `add → commit → push` loop, `.gitignore`, SSH to GitHub | [`lesson-02-python-git-workflow/`](lesson-02-python-git-workflow/) |
 | 03 | **Python Fundamentals** | Functions, lists & dicts, the 4 core loop patterns, clean code | [`lesson-03-python-fundamentals/`](lesson-03-python-fundamentals/) |
 | 04 | **Virtual Environments** | `venv`, `pip`, `requirements.txt` — reproducibility in practice | [`lesson-04-virtual-environments/`](lesson-04-virtual-environments/) |
+| 05 | **First ML Model** 🎓 | Trained/evaluated/saved a scikit-learn model (train/test split, `fit`/`predict`) | [`lesson-05-first-ml-model/`](lesson-05-first-ml-model/) |
 
 _More lessons added every weekend._
 
@@ -46,13 +47,14 @@ pip install -r lesson-04-virtual-environments/requirements.txt
 
 # run any lesson's lab, e.g.
 python lesson-03-python-fundamentals/model_registry.py
+python lesson-05-first-ml-model/train.py
 ```
 
 ---
 
 ## 📈 Progress
 
-- ✅ Phase 0 — Prerequisites (in progress): Lessons 01–04 done
+- ✅ **Phase 0 — Prerequisites: COMPLETE** 🎓 (Lessons 01–05 — Python, Git, environments, and a trained ML model)
 - ⬜ Phase 1 — Software Engineering Foundations for ML
 - ⬜ Phase 2 — Core MLOps Tooling (MLflow, DVC)
 - ⬜ Phase 3 — CI/CD & Automation
