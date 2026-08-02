@@ -20,3 +20,5 @@ data/
 *.csv
 *.pkl
 *.joblib
+# MLflow tracking data
+mlruns/
