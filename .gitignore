@@ -22,3 +22,5 @@ data/
 *.joblib
 # MLflow tracking data
 mlruns/
+mlflow.db
+*.db

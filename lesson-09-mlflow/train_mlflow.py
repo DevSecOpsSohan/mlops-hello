@@ -23,8 +23,51 @@ def main():
         X, y, test_size=test_size, random_state=42
     )
 
-    # Name the group of runs
-    mlflow.set_experiment("iris-classifier")
+    # -------------------------------------------------------------------------
+    # WHERE does MLflow store tracking data?  ->  set_tracking_uri()
+    #
+    # If we DON'T set this, MLflow defaults to auto-creating an `mlruns/` folder
+    # in the current working directory (on Windows that lands on the C: drive,
+    # right next to the code — easy to lose track of).
+    #
+    # BEST PRACTICE: always set your own explicit path so you control where data
+    # lives. The URI can be LOCAL or REMOTE:
+    #   local  DB     -> "sqlite:///mlflow.db"          (default DB)
+    #   custom DB     -> "sqlite:///mytracks.db"        (custom-named DB — this)
+    #   remote server -> "http://mlflow-server:5000"    (shared team server)
+    #
+    # NOTE (MLflow 3.x): a bare FOLDER path like "./mytracks" is the old *file
+    # store* and is now DEPRECATED — MLflow raises an error and tells you to use
+    # a database backend. So for a custom name, use a SQLite DB (sqlite:///NAME.db),
+    # not a folder.
+    # -------------------------------------------------------------------------
+    mlflow.set_tracking_uri("sqlite:///mytracks.db")   # <- custom-named SQLite DB
+
+    # get_tracking_uri() READS back where MLflow is currently pointing.
+    # Great for debugging "where did my runs actually go?"
+    print("Tracking data is going to:", mlflow.get_tracking_uri())
+
+    # -------------------------------------------------------------------------
+    # EXPERIMENTS = named groups of related runs (keeps projects separate).
+    #
+    # create_experiment(name, artifact_location=None, tags=None):
+    #   Creates a BRAND-NEW experiment. Errors if it already exists. Lets you set
+    #   a custom artifact location + tags. Returns the new experiment's ID.
+    #   -> We guard it with get_experiment_by_name so re-runs don't crash.
+    #
+    # set_experiment(name):
+    #   Activates the experiment for the runs that follow (creates it if missing).
+    #   This is the everyday function you'll almost always use.
+    # -------------------------------------------------------------------------
+    experiment_name = "iris-classifier"
+
+    if mlflow.get_experiment_by_name(experiment_name) is None:
+        mlflow.create_experiment(
+            name=experiment_name,
+            tags={"project": "iris", "team": "mlops-learning"},
+        )
+
+    mlflow.set_experiment(experiment_name)   # activate it for the run below
 
     # Start recording ONE run
     with mlflow.start_run():

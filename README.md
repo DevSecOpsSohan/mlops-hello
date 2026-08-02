@@ -61,6 +61,24 @@ python lesson-05-first-ml-model/train.py
 - ⬜ Phase 4 — Deployment & Orchestration (Docker, Kubernetes, Airflow)
 - ⬜ Phase 5 — Monitoring & Production ML
 - ⬜ Phase 6 — Advanced & Specialization (LLMOps)
+- 🔒 **Capstone — Infra AI Agent** (starts after Phase 6)
+
+---
+
+## 🤖 Capstone — Infra AI Agent (after the series)
+
+The finale: an **AI agent that operates real infrastructure** — troubleshoots incidents,
+authors Terraform, and raises MRs — where every action is restricted by policy the agent
+**cannot talk its way around**.
+
+> The one idea it's built on: **the agent is not the security boundary — IAM is.**
+> The agent proposes, policy-as-code decides, CI executes, humans approve.
+
+🔒 Blocked until Phases 2–6 are done — it reuses every one of them (pytest → evals,
+CI/CD → the write path, monitoring → the troubleshooting skills, LLMOps → the guardrails).
+
+The full blueprint is already written so the build starts on day one:
+[`capstone-infra-ai-agent/`](capstone-infra-ai-agent/)
 
 ---
 

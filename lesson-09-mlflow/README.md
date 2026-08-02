@@ -6,13 +6,164 @@ results never vanish and the best run is reproducible. Serves the **Reproducibil
 
 ## Files
 - `train_mlflow.py` — trains the Iris model and logs the run to MLflow
-- `mlruns/` — where MLflow stores runs (git-ignored — generated data)
+- `mlflow.db` — SQLite DB holding run metadata (params/metrics) — git-ignored
+- `mlruns/` — model artifacts — git-ignored (generated data)
 
 ## How to run
 ```bash
-python train_mlflow.py     # trains + logs one run
-mlflow ui                  # open http://127.0.0.1:5000 to explore runs
+python train_mlflow.py                              # trains + logs one run
+mlflow ui --backend-store-uri sqlite:///mlflow.db   # open http://127.0.0.1:5000
 ```
+
+> ⚠️ **MLflow 3.x storage note:** this version stores run metadata in a **SQLite database
+> (`mlflow.db`)**, NOT the old `meta.yaml` files inside `mlruns/`. So the UI must be pointed
+> at that DB with `--backend-store-uri sqlite:///mlflow.db`, or it'll look empty. The script
+> sets `mlflow.set_tracking_uri("sqlite:///mlflow.db")` so everything stays consistent.
+
+---
+
+## 📂 Where MLflow stores everything (MLflow 3.x)
+
+MLflow splits your data into **two places**: a database for *metadata* and a folder for *files*.
+
+### 1. `mlflow.db` (SQLite database) — the **metadata / structured data**
+Everything you can put in a table lives here. Peek inside with any SQLite viewer. Key tables:
+| Table | Holds |
+|-------|-------|
+| `experiments` | your experiments (e.g. `iris-classifier`) |
+| `runs` | each run (id, start time, status) |
+| `params` | logged parameters (`max_iter=200`) |
+| `metrics` / `latest_metrics` | logged metrics (`accuracy=1.0`) |
+| `tags` | run/experiment tags |
+| `registered_models` / `model_versions` | the **Model Registry** (versions, stages) |
+| *(new in 3.x)* `traces`, `spans`, `assessments`, `evaluation_datasets`, `scorers`, `guardrails` | GenAI/LLM tracing & evaluation features |
+
+> 👉 So your **params, metrics, run records, and the model registry** are all in `mlflow.db` —
+> that's the "other info you didn't see" in the folder.
+
+### 2. `mlruns/` folder — the **artifacts (actual files)**
+Things too big/binary for a database — the saved models and how to reproduce them.
+Structure: `mlruns/<experiment-id>/models/m-<hash>/artifacts/`
+
+| File | What it is |
+|------|-----------|
+| `MLmodel` | the model's descriptor — its **"flavors"**, input/output signature, load info |
+| `model.skops` | the actual serialized model (`.skops` = newer *secure* sklearn format, safer than pickle) |
+| `requirements.txt` | pip deps to reproduce the model's environment |
+| `conda.yaml` | conda environment spec (same purpose, conda flavor) |
+| `python_env.yaml` | the exact Python version/env used |
+
+> 👉 `mlruns/` is created the moment you call `log_model(...)`. It exists to store the **model
+> file + everything needed to reload and reproduce it** on another machine. This is MLflow's
+> **Models** component (Reproducibility pillar) made physical.
+
+### One-line mental model
+> **`mlflow.db` = the searchable index (params, metrics, runs, registry).**
+> **`mlruns/` = the file cabinet (the actual model files + their environment).**
+> The UI reads the DB for the tables and the folder for the artifacts, and shows them together.
+
+---
+
+## 🎯 `set_tracking_uri()` and `get_tracking_uri()` — control WHERE data lives
+
+### `mlflow.set_tracking_uri(uri)` — **tells** MLflow where to store/read tracking data (write)
+```python
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
+```
+**Importance:** this one line decides where ALL your params, metrics, and models go. It's what
+turns MLflow from a personal laptop tool into a **team platform**.
+
+**The URI can be LOCAL or REMOTE:**
+| URI form | Type | Where data goes |
+|----------|------|-----------------|
+| `sqlite:///mlflow.db` | local DB | a SQLite file next to your code (default name) |
+| `sqlite:///mytracks.db` | local DB (custom name) | a SQLite file you named |
+| `http://127.0.0.1:5000` | **remote (local server)** | a running MLflow server on your machine |
+| `http://mlflow.mycompany.com:5000` | **remote (team server)** 🏢 | a shared central server — everyone logs here |
+| `https://<databricks-workspace>` | **remote (managed cloud)** | Databricks / cloud-hosted MLflow |
+
+> ⚠️ **File store is DEPRECATED in MLflow 3.x.** A bare folder path like `./mlruns` or
+> `./mytracks` (the old file store with `meta.yaml` files) now raises an error telling you to
+> *"migrate to a database backend (e.g., sqlite:///mlflow.db)"*. This is exactly why 3.x uses a
+> SQLite DB and has no `meta.yaml`. **For a custom name, use `sqlite:///yourname.db`, NOT a folder.**
+
+---
+
+## 🗂️ `create_experiment()` and `set_experiment()` — organize runs into groups
+
+An **experiment** is a **named group of related runs** (e.g. all your Iris runs together). It
+keeps different projects separate and lets you compare only the runs that belong together.
+Without experiments, every run would pile into one messy default bucket.
+
+### `mlflow.set_experiment(name)` — activate an experiment (create if missing)
+```python
+mlflow.set_experiment("iris-classifier")
+```
+- **Parameter:** `experiment_name` (or `experiment_id`).
+- **What it does:** makes this experiment the **active** one — every run after this line is
+  filed under it. If the experiment doesn't exist yet, it **creates it automatically**.
+- **Use / importance:** the everyday function. You'll almost always use this. It's "get-or-create
+  + activate" in one call, so it's safe to call on every run.
+
+### `mlflow.create_experiment(name, artifact_location, tags)` — explicitly create a NEW experiment
+```python
+exp_id = mlflow.create_experiment(
+    name="iris-classifier",
+    artifact_location="s3://my-bucket/iris",   # optional: where artifacts go
+    tags={"project": "iris", "team": "mlops"}, # optional: labels/metadata
+)
+```
+- **Parameters:**
+  - `name` (required) — the experiment name.
+  - `artifact_location` (optional) — a custom place to store this experiment's artifacts (e.g. an S3 bucket). Great for cloud/team setups.
+  - `tags` (optional) — a dict of metadata (team, project, purpose) for filtering/organizing.
+- **What it does:** creates a **brand-new** experiment and returns its **ID**. ⚠️ It **errors if
+  the experiment already exists** (unlike `set_experiment`).
+- **Use / importance:** use when you need **control** — a custom artifact location or tags at
+  creation time. Because it errors on duplicates, guard it:
+  ```python
+  if mlflow.get_experiment_by_name(name) is None:
+      mlflow.create_experiment(name, tags={...})
+  mlflow.set_experiment(name)   # then activate it
+  ```
+
+### 🔑 Which do I use?
+| Situation | Use |
+|-----------|-----|
+| Just group my runs (99% of the time) | `set_experiment(name)` |
+| Need a custom artifact location or tags at creation | `create_experiment(...)` then `set_experiment(...)` |
+
+> **Why experiments matter:** they're how you keep "Iris model runs" separate from "fraud model
+> runs" and compare only what belongs together. On a team, tags + artifact locations set here
+> feed organization and governance — an MLOps-engineer concern.
+
+> 🌉 **Remote is the real-team setup:** you run **one central MLflow server** (a remote URL), and
+> every data scientist sets `mlflow.set_tracking_uri("http://mlflow-server:5000")`. Now all
+> experiments land in one shared, comparable place instead of being trapped on individual laptops.
+> Standing up and running that remote server is a core **MLOps-engineer (infra)** job — your DevOps strength.
+> The remote server itself stores runs in a **backend store** (a real DB like PostgreSQL/MySQL) +
+> an **artifact store** (S3, GCS, Azure Blob) for the model files.
+
+### `mlflow.get_tracking_uri()` — **asks** MLflow where it's currently pointing (read)
+```python
+print(mlflow.get_tracking_uri())   # → sqlite:///mlflow.db
+```
+**Importance:** your #1 debugging tool. If runs aren't showing up where you expect, this tells
+you where they *actually* went. (Rule: `set_` = write/tell, `get_` = read/ask.)
+
+### ⚠️ IMPORTANT — if you DON'T set a custom path
+If you never call `set_tracking_uri()`, MLflow uses a **default**: it auto-creates an **`mlruns/`
+folder inside your current working directory** (wherever you run the script from). On a Windows
+laptop that means it gets dumped somewhere on the **C: drive** next to your code — often not where
+you want it, and easy to lose track of.
+
+> ✅ **Best practice:** always set your own explicit tracking location so you control where data
+> lands and it stays consistent:
+> ```python
+> mlflow.set_tracking_uri("sqlite:///mlflow.db")   # or a full custom path / remote server
+> ```
+> Then launch the UI pointing at the same place: `mlflow ui --backend-store-uri sqlite:///mlflow.db`.
+> Don't rely on the default `mlruns/` — name it yourself.
 
 ---
 
