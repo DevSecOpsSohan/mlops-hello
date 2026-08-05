@@ -24,3 +24,8 @@ data/
 mlruns/
 mlflow.db
 *.db
+iris_artifacts/
+lesson-09-mlflow/notes.txt
+lesson-09-mlflow/reports/
+notes.txt
+reports/

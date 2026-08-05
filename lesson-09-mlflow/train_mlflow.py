@@ -1,5 +1,6 @@
 """Train the Iris model AND track the run with MLflow — Lesson 09."""
 
+from pathlib import Path
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
@@ -50,24 +51,51 @@ def main():
     # -------------------------------------------------------------------------
     # EXPERIMENTS = named groups of related runs (keeps projects separate).
     #
-    # create_experiment(name, artifact_location=None, tags=None):
-    #   Creates a BRAND-NEW experiment. Errors if it already exists. Lets you set
-    #   a custom artifact location + tags. Returns the new experiment's ID.
-    #   -> We guard it with get_experiment_by_name so re-runs don't crash.
+    # WHEN TO USE WHICH:
     #
-    # set_experiment(name):
-    #   Activates the experiment for the runs that follow (creates it if missing).
-    #   This is the everyday function you'll almost always use.
+    # create_experiment(name, artifact_location=None, tags=None)
+    #   USE FOR: a BRAND-NEW experiment you're about to start.
+    #   - Errors if an experiment with that name ALREADY EXISTS.
+    #   - Only place you can set a custom ARTIFACT LOCATION + tags (set ONCE,
+    #     at creation — cannot be changed later).
+    #   - Returns the new experiment's ID.
+    #
+    # set_experiment(name)
+    #   USE FOR: pointing at an EXISTING experiment by name to keep logging to it.
+    #   - If NO experiment with that name exists yet, it CREATES one automatically.
+    #   - Always ACTIVATES it (all runs after this line are filed under it).
+    #   - RETURNS the Experiment object (so we can read/print its details).
+    #   -> This is the everyday function. Safe to call on every run.
+    #
+    # THE PATTERN BELOW: use create_experiment ONLY the first time (to set the
+    # custom artifact location + tags), guarded so re-runs don't crash; then
+    # set_experiment every time to activate it.
     # -------------------------------------------------------------------------
-    experiment_name = "iris-classifier"
+    experiment_name = "iris-experiment"
+
+    # A CUSTOM artifact location for THIS experiment (its own separate folder).
+    # Could also be a cloud bucket: "s3://my-bucket/iris" or "gs://my-bucket/iris".
+    artifact_uri = Path("iris_artifacts").absolute().as_uri()   # -> file:///.../iris_artifacts
 
     if mlflow.get_experiment_by_name(experiment_name) is None:
         mlflow.create_experiment(
             name=experiment_name,
-            tags={"project": "iris", "team": "mlops-learning"},
+            artifact_location=artifact_uri,                       # custom artifact path
+            tags={"project": "iris", "team": "mlops-learning"},   # metadata tags
         )
 
-    mlflow.set_experiment(experiment_name)   # activate it for the run below
+    # set_experiment activates it AND returns the Experiment object.
+    experiment = mlflow.set_experiment(experiment_name)
+
+    # Print the experiment's details (get_experiment_by_name / get_experiment
+    # return the same object if you fetch it separately).
+    print("--- experiment details ---")
+    print("name:             ", experiment.name)
+    print("experiment_id:    ", experiment.experiment_id)
+    print("artifact_location:", experiment.artifact_location)   # the artifact URL
+    print("tags:             ", experiment.tags)
+    print("lifecycle_stage:  ", experiment.lifecycle_stage)
+    print("--------------------------")
 
     # Start recording ONE run
     with mlflow.start_run():

@@ -95,6 +95,14 @@ An **experiment** is a **named group of related runs** (e.g. all your Iris runs 
 keeps different projects separate and lets you compare only the runs that belong together.
 Without experiments, every run would pile into one messy default bucket.
 
+> ### 🧭 WHEN TO USE WHICH (the one thing to remember)
+> - **`create_experiment(name)`** → for a **brand-new** experiment you're about to run.
+>   **Errors if the name already exists.** It's the *only* place to set a custom artifact
+>   location + tags.
+> - **`set_experiment(name)`** → for an **existing** experiment (pass its name to keep logging
+>   to it). **If no experiment with that name exists, it creates one** automatically, then
+>   activates it. This is the everyday function.
+
 ### `mlflow.set_experiment(name)` — activate an experiment (create if missing)
 ```python
 mlflow.set_experiment("iris-classifier")
@@ -136,6 +144,39 @@ exp_id = mlflow.create_experiment(
 > **Why experiments matter:** they're how you keep "Iris model runs" separate from "fraud model
 > runs" and compare only what belongs together. On a team, tags + artifact locations set here
 > feed organization and governance — an MLOps-engineer concern.
+
+### 📋 Reading an experiment's details (the Experiment object)
+`set_experiment()` **returns** the Experiment object (so do `get_experiment(id)` and
+`get_experiment_by_name(name)`). You can read/print its attributes:
+```python
+experiment = mlflow.set_experiment("iris-experiment")
+print(experiment.name)               # iris-experiment
+print(experiment.experiment_id)      # 3
+print(experiment.artifact_location)  # file:///.../iris_artifacts  <- the artifact URL
+print(experiment.tags)               # {'project': 'iris', 'team': 'mlops-learning'}
+print(experiment.lifecycle_stage)    # active
+```
+
+### 🗂️ Custom artifact location (a separate artifact URL per experiment)
+By default, an experiment's artifacts go into `mlruns/`. But `create_experiment` lets you give
+each experiment its **own** artifact home — a local folder, or a cloud bucket:
+```python
+from pathlib import Path
+artifact_uri = Path("iris_artifacts").absolute().as_uri()   # -> file:///.../iris_artifacts
+# or a cloud bucket:  "s3://my-bucket/iris"  /  "gs://my-bucket/iris"
+
+mlflow.create_experiment(name="iris-experiment",
+                         artifact_location=artifact_uri,
+                         tags={"project": "iris"})
+```
+Now that experiment's models are stored under `iris_artifacts/` instead of `mlruns/`.
+> ⚠️ **`artifact_location` is set ONCE at creation and can't be changed later.** That's why we
+> used a fresh experiment name (`iris-experiment`) to see a *custom* location take effect — an
+> experiment that already exists keeps its original location.
+>
+> 🏢 **Why this matters on a team:** you point each experiment's artifacts at shared cloud
+> storage (S3/GCS/Azure) so models aren't trapped on one laptop. Designing that layout is an
+> MLOps-engineer (governance) job.
 
 > 🌉 **Remote is the real-team setup:** you run **one central MLflow server** (a remote URL), and
 > every data scientist sets `mlflow.set_tracking_uri("http://mlflow-server:5000")`. Now all
@@ -220,6 +261,51 @@ with mlflow.start_run():                           # record ONE run
 | Artifact | file the run produced | the trained model |
 | Run | one execution of training | "run #3, 100% acc" |
 | Experiment | a named group of runs | `iris-classifier` |
+
+## 📝 Core logging functions (6) — `demo_logging.py`
+
+These record data INTO a run. Singular = one at a time; plural = many via a dict
+(except artifacts: singular = one file, plural = a folder).
+
+| Function | Logs | Input | Returns |
+|----------|------|-------|---------|
+| `log_param(key, value)` | **one** param | 2 values | **the value** ⭐ |
+| `log_params({...})` | **many** params | a dict | `None` |
+| `log_metric(key, value, step=None)` | **one** metric | 2 values (+ optional step) | `None` |
+| `log_metrics({...}, step=None)` | **many** metrics | a dict | `None` |
+| `log_artifact(file_path)` | **one file** | a file path | `None` |
+| `log_artifacts(dir_path)` | **all files in a folder** | a directory path | `None` |
+
+**Important notes:**
+- **Param vs Metric:** a **param** is an *input you chose* (`max_iter=200`, logged once); a
+  **metric** is a *result you measured* (`accuracy=0.97`). Metrics accept a **`step`**, so you can
+  log the same metric repeatedly (e.g. once per epoch) to form a **curve over time**:
+  ```python
+  for epoch in range(10):
+      mlflow.log_metric("loss", loss, step=epoch)
+  ```
+- **Artifact vs Artifacts is different** from the others — it's **one file vs a whole folder**,
+  not value vs dict. `log_artifact("plot.png")` uploads one file; `log_artifacts("reports/")`
+  uploads every file in that directory.
+- **Only `log_param` returns a value** (the value you logged). All the others return `None`.
+
+### 📦 What is an "artifact" (and why store it)?
+An **artifact = any FILE a run produces that you want to keep** — the trained model, plots
+(confusion matrix, ROC curve), reports (`metrics.json`), data samples, config/env files.
+> Metrics say *"how good was it?"* (a number). **Artifacts say *"show me the actual thing"*** (the model, the plot).
+
+**Why store them:** reproducibility (recreate the exact output), debugging (open the real plots),
+comparison (run #3 vs #7 side by side), sharing (teammates download from the UI),
+governance/audit (prove what a model was), and deployment (the model artifact is what you ship).
+
+**The two functions + optional `artifact_path` (a subfolder to organize inside the run):**
+```python
+mlflow.log_artifact("confusion_matrix.png", artifact_path="plots")  # ONE file -> <run>/artifacts/plots/
+mlflow.log_artifacts("reports", artifact_path="reports")            # a FOLDER  -> <run>/artifacts/reports/
+```
+
+Runnable demos (split by group): **`logging-functions/`** — `demo_params.py`, `demo_metrics.py`,
+`demo_artifacts.py` (run via `run_demos.py`, one at a time).
 
 ## 🎤 Interview note
 > "MLflow is an open-source ML lifecycle platform with four components: Tracking (log params,
