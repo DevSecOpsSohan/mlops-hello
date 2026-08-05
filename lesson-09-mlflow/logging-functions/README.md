@@ -8,6 +8,7 @@ one idea at a time (run them via `run_demos.py`, one uncommented at a time).
 | `demo_params.py` | `log_param`, `log_params` | **Params** — inputs you chose |
 | `demo_metrics.py` | `log_metric`, `log_metrics` | **Metrics** — results you measured |
 | `demo_artifacts.py` | `log_artifact`, `log_artifacts` | **Artifacts** — files the run made |
+| `demo_tags.py` | `set_tag`, `set_tags` | **Tags** — labels to organize/search runs |
 
 ## The 6 functions at a glance
 | Function | Logs | Input | Returns |
@@ -42,6 +43,33 @@ a model was), deployment (the model artifact is what you ship).
 mlflow.log_artifact("confusion_matrix.png", artifact_path="plots")   # -> <run>/artifacts/plots/
 mlflow.log_artifacts("reports", artifact_path="reports")             # -> <run>/artifacts/reports/
 ```
+
+## 🏷️ Tags — `set_tag` / `set_tags`
+A **tag** is a **label (key=value string)** you attach to a **run** to organize it and later
+**search/filter** by it.
+
+| Function | Sets | Input | Returns |
+|----------|------|-------|---------|
+| `set_tag(key, value)` | **one** tag | 2 strings | `None` |
+| `set_tags({...})` | **many** tags | a dict | `None` |
+
+**Limits:** key = string up to **250** chars · value = string up to **5000** chars.
+
+**Tags are searchable** — filter runs by a tag (in the UI or via `search_runs`):
+```python
+mlflow.set_tag("stage", "production")                 # inside a run
+mlflow.set_tags({"author": "sohan", "release": "v1"})
+
+# later, find runs by tag — query syntax:  tags.<key> = '<value>'
+mlflow.search_runs(filter_string="tags.author = 'sohan'")
+```
+
+> ⚠️ **Run tags vs experiment tags:** `set_tag`/`set_tags` tag the **current run** (call them
+> inside an active run). To tag the **experiment itself**, use `create_experiment(tags={...})`
+> or `mlflow.set_experiment_tag(key, value)`.
+>
+> 💡 **Tag vs Param:** a param is an *input to the model* (`max_iter=200`); a tag is *metadata
+> about the run* (`stage=production`, `author=sohan`) used to organize and search.
 
 ## Run it
 ```bash

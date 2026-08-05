@@ -12,6 +12,7 @@ Then view what got logged in the UI:
 from demo_params import demo_params
 from demo_metrics import demo_metrics
 from demo_artifacts import demo_artifacts
+from demo_tags import demo_tags
 
 
 if __name__ == "__main__":
@@ -19,3 +20,4 @@ if __name__ == "__main__":
     demo_params()
     # demo_metrics()
     # demo_artifacts()
+    # demo_tags()
